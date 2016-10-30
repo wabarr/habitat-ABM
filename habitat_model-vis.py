@@ -3,7 +3,7 @@ from mesa.visualization.ModularVisualization import ModularServer
 from habitat_model import HabitatModel, HabitatPatch, Organism
 
 def agent_portrayal(agent):
-    if isinstance(agent, HabitatPatch):
+    try: #patches have habitat attributes
         if agent.habitat == "Grassland":
             color = "#ccc133"
         elif agent.habitat == "Forest":
@@ -14,7 +14,7 @@ def agent_portrayal(agent):
                  "Layer": 0,
                  "w":1,
                  "h":1}
-    if isinstance(agent, Organism):
+    except AttributeError: #these are the agents because theyhave no habitat attribute
         if agent.habitat_pref == "Grassland":
             color = "#efe883"
         elif agent.habitat_pref == "Forest":
@@ -26,10 +26,10 @@ def agent_portrayal(agent):
                      "r":0.5}
     return portrayal
 
-grid = CanvasGrid(agent_portrayal, 20, 20, 500 , 500)
+grid = CanvasGrid(agent_portrayal, 30, 30, 600 , 600)
 server = ModularServer(HabitatModel,
                        [grid],
                        "Habitat Grid", 
-                      20, 20, 100, False)
+                      30, 30, N=100, randPatches=False)
 server.port = 8889
 server.launch()
