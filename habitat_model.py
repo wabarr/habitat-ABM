@@ -16,6 +16,9 @@ class Organism(Agent):
     def __init__(self, model, unique_id, habitat_pref):
         super().__init__(unique_id, model)
         self.habitat_pref = habitat_pref
+        self.death_rate = 0.1
+        self.birth_rate = 0.1
+        self.alive = True
         
     def isHappy(self):
         cell = self.model.grid[self.pos[0]][self.pos[1]]
@@ -25,15 +28,32 @@ class Organism(Agent):
             except: #these are the patch agents, that will have no habitat_pref
                 pass
     
-    def step(self):
+    def move(self):
         if self.isHappy():
             pass
         else:
             possible_steps=self.model.grid.get_neighborhood(self.pos, moore=True, include_center=False)
             new_position = random.choice(possible_steps)
             self.model.grid.move_agent(self, new_position)
-            
     
+    def grimReaper(self):
+        if self.alive == True:
+            if random.random() < self.death_rate:
+                self.alive = False
+    
+    def stork(self):
+        if self.alive == True:
+            if random.random() < self.birth_rate:
+                baby = Organism(self.model, self.unique_id + "+", self.habitat_pref)
+                self.model.grid.place_agent(baby, self.pos)
+                self.model.schedule.add(baby)
+    
+    def step(self):
+        self.move()
+        self.grimReaper()
+        self.stork()
+        
+
 class HabitatModel(Model):
     def __init__(self, height, width, N, randPatches):
         self.running = True
@@ -42,12 +62,17 @@ class HabitatModel(Model):
         # Create patches
         self.createPatches(height, width, randPatches)
         self.createAgents(N)
-        self.datacollector = DataCollector(
-            agent_reporters={ 
+        self.datacollector = MyDataCollector(
+            agent_reporters={
                              "x": lambda a: a.pos[0],
-                             "y": lambda a: a.pos[1]
+                             "y": lambda a: a.pos[1],
+                             "alive": lambda a: a.alive,
+                             "habitat_preference": lambda a: a.habitat_pref
                              }
                          )
+    def cleanUp(self):
+        self.datacollector.get_agent_vars_dataframe().to_csv("./output.csv")
+        
     def createPatches(self, height, width, randPatches):
         if randPatches==True:
             for cell, index in zip(self.grid.coord_iter(), range(height*width)):
@@ -83,10 +108,40 @@ class HabitatModel(Model):
                     pass
         return all(responses)
     
-                
+    def allDead(self):
+        responses = []
+        for agent in self.schedule.agents:
+            responses.append(agent.alive==False)
+        return all(responses)
+        
+    def removeDead(self):
+        for agent in self.schedule.agents:
+            if agent.alive == False:
+                self.schedule.remove(agent)
+
+          
     def step(self):
-        '''Advance the model by one step.'''
         self.schedule.step()
         self.datacollector.collect(self)
-        if self.allHappy():
+        self.removeDead()
+        if self.allDead():
+            self.cleanUp()
             self.running=False
+        
+            
+            
+class MyDataCollector(DataCollector):
+    ## subclass DataCollector to only collect data on dead agents
+    def collect(self, model):
+        """ Collect all the data for the given model object. """
+        if self.model_reporters:
+            for var, reporter in self.model_reporters.items():
+                self.model_vars[var].append(reporter(model))
+
+        if self.agent_reporters:
+            for var, reporter in self.agent_reporters.items():
+                agent_records = []
+                for agent in model.schedule.agents:
+                    if agent.alive == False:
+                        agent_records.append((agent.unique_id, reporter(agent)))
+                self.agent_vars[var].append(agent_records)

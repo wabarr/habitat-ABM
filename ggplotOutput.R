@@ -1,0 +1,5 @@
+setwd("~/habitat-ABM/")
+agents <- read.csv("output.csv")
+library(ggplot2)
+theme_set(theme_bw(14))
+ggplot(agents, aes(x=x, y=y)) + stat_bin_2d(aes(fill=..count..))
