@@ -17,8 +17,10 @@ class Organism(Agent):
         super().__init__(unique_id, model)
         self.habitat_pref = habitat_pref
         self.death_rate = 0.1
-        self.birth_rate = 0.1
+        self.birth_rate = 0.0
+        self.habitat_specificity = 0.9
         self.alive = True
+        self.reported = False
         
     def isHappy(self):
         cell = self.model.grid[self.pos[0]][self.pos[1]]
@@ -29,29 +31,31 @@ class Organism(Agent):
                 pass
     
     def move(self):
+        moveOrNot = None
         if self.isHappy():
-            pass
+            # if agent is happy, then decide whether to move based on habitat specificity
+            if random.random() < self.habitat_specificity:
+                moveOrNot = "Not"
         else:
+            moveOrNot = "Move"
+        if moveOrNot == "Move":
             possible_steps=self.model.grid.get_neighborhood(self.pos, moore=True, include_center=False)
             new_position = random.choice(possible_steps)
             self.model.grid.move_agent(self, new_position)
     
-    def grimReaper(self):
+    def liveOrDie(self):
         if self.alive == True:
             if random.random() < self.death_rate:
                 self.alive = False
-    
-    def stork(self):
-        if self.alive == True:
             if random.random() < self.birth_rate:
                 baby = Organism(self.model, self.unique_id + "+", self.habitat_pref)
                 self.model.grid.place_agent(baby, self.pos)
                 self.model.schedule.add(baby)
+            
     
     def step(self):
         self.move()
-        self.grimReaper()
-        self.stork()
+        self.liveOrDie()
         
 
 class HabitatModel(Model):
@@ -92,7 +96,7 @@ class HabitatModel(Model):
             
     def createAgents(self, N):
         for index in range(N):
-            agent = Organism(self, "Organism" + str(index), random.choice(habitat_CHOICES))
+            agent = Organism(self, "Organism" + str(index).zfill(6), random.choice(habitat_CHOICES))
             self.schedule.add(agent)
             x = random.randrange(self.grid.width)
             y = random.randrange(self.grid.height)
@@ -114,16 +118,15 @@ class HabitatModel(Model):
             responses.append(agent.alive==False)
         return all(responses)
         
-    def removeDead(self):
+    def markReported(self):
         for agent in self.schedule.agents:
-            if agent.alive == False:
-                self.schedule.remove(agent)
-
-          
+            if agent.alive == False and agent.reported == False:
+                agent.reported = True
+      
     def step(self):
         self.schedule.step()
         self.datacollector.collect(self)
-        self.removeDead()
+        self.markReported()
         if self.allDead():
             self.cleanUp()
             self.running=False
@@ -142,6 +145,6 @@ class MyDataCollector(DataCollector):
             for var, reporter in self.agent_reporters.items():
                 agent_records = []
                 for agent in model.schedule.agents:
-                    if agent.alive == False:
+                    if agent.alive == False and agent.reported == False:
                         agent_records.append((agent.unique_id, reporter(agent)))
                 self.agent_vars[var].append(agent_records)

@@ -30,6 +30,6 @@ grid = CanvasGrid(agent_portrayal, 30, 30, 600 , 600)
 server = ModularServer(HabitatModel,
                        [grid],
                        "Habitat Grid", 
-                      30, 30, N=100, randPatches=False)
+                      30, 30, N=150, randPatches=False)
 server.port = 8889
 server.launch()
