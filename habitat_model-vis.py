@@ -15,21 +15,24 @@ def agent_portrayal(agent):
                  "w":1,
                  "h":1}
     except AttributeError: #these are the agents because theyhave no habitat attribute
-        if agent.habitat_pref == "Grassland":
-            color = "#efe883"
-        elif agent.habitat_pref == "Forest":
-            color = "#69c452"
-        portrayal = {"Shape": "circle",
-                     "Color": color,
-                     "Layer": 1, 
-                     "Filled":"true",
-                     "r":0.5}
+        if agent.alive:
+            if agent.habitat_pref == "Grassland":
+                color = "#efe883"
+            elif agent.habitat_pref == "Forest":
+                color = "#69c452"
+            portrayal = {"Shape": "circle",
+                         "Color": color,
+                         "Layer": 1, 
+                         "Filled":"true",
+                         "r":0.5}
+        else:
+            return None
     return portrayal
 
 grid = CanvasGrid(agent_portrayal, 30, 30, 600 , 600)
 server = ModularServer(HabitatModel,
                        [grid],
                        "Habitat Grid", 
-                      30, 30, N=150, randPatches=False)
+                      30, 30, N=100, randPatches=False)
 server.port = 8889
 server.launch()

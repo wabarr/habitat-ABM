@@ -17,7 +17,7 @@ class Organism(Agent):
         super().__init__(unique_id, model)
         self.habitat_pref = habitat_pref
         self.death_rate = 0.1
-        self.birth_rate = 0.0
+        self.birth_rate = 0.1
         self.habitat_specificity = 0.9
         self.alive = True
         self.reported = False
@@ -43,19 +43,23 @@ class Organism(Agent):
             new_position = random.choice(possible_steps)
             self.model.grid.move_agent(self, new_position)
     
-    def liveOrDie(self):
+    def die(self):
         if self.alive == True:
             if random.random() < self.death_rate:
                 self.alive = False
+    
+    def birth(self):
+        if self.alive == True:
             if random.random() < self.birth_rate:
-                baby = Organism(self.model, self.unique_id + "+", self.habitat_pref)
+                baby = Organism(self.model, "Organism" + str(len(self.model.schedule.agents)).zfill(6), self.habitat_pref)
                 self.model.grid.place_agent(baby, self.pos)
                 self.model.schedule.add(baby)
             
     
     def step(self):
         self.move()
-        self.liveOrDie()
+        self.die()
+        self.birth()
         
 
 class HabitatModel(Model):
@@ -101,16 +105,6 @@ class HabitatModel(Model):
             x = random.randrange(self.grid.width)
             y = random.randrange(self.grid.height)
             self.grid.place_agent(agent, (x, y))
-        
-    def allHappy(self):
-        responses = []
-        for cell in self.grid:
-            for agent in cell:
-                try:
-                    responses.append(agent.isHappy())
-                except AttributeError:
-                    pass
-        return all(responses)
     
     def allDead(self):
         responses = []
@@ -118,11 +112,12 @@ class HabitatModel(Model):
             responses.append(agent.alive==False)
         return all(responses)
         
-    def markReported(self):
+    def markReported(self): 
+        #method to mark a dead agent as having been reported. Must be run AFTER data collection to ensure desired behavior
         for agent in self.schedule.agents:
-            if agent.alive == False and agent.reported == False:
+            if agent.alive == False:
                 agent.reported = True
-      
+        
     def step(self):
         self.schedule.step()
         self.datacollector.collect(self)
@@ -134,7 +129,7 @@ class HabitatModel(Model):
             
             
 class MyDataCollector(DataCollector):
-    ## subclass DataCollector to only collect data on dead agents
+    ## subclass DataCollector to only collect data on dead agents that haven't been reported yet
     def collect(self, model):
         """ Collect all the data for the given model object. """
         if self.model_reporters:
