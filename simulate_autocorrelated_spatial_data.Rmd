@@ -1,0 +1,29 @@
+---
+title: "simulate autocorrelated spatial data"
+author: "Andrew Barr"
+date: "9/19/2017"
+output: html_document
+---
+
+## 
+```{r}
+makeWorld(range=1)
+makeWorld(range=1)
+makeWorld(range=1)
+
+makeWorld(range=2)
+makeWorld(range=2)
+makeWorld(range=2)
+
+makeWorld(range=3)
+makeWorld(range=3)
+makeWorld(range=3)
+
+makeWorld(range=4)
+makeWorld(range=4)
+makeWorld(range=4)
+
+makeWorld(range=5)
+makeWorld(range=5)
+makeWorld(range=5)
+```
