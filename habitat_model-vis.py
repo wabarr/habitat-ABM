@@ -29,10 +29,10 @@ def agent_portrayal(agent):
             return None
     return portrayal
 
-grid = CanvasGrid(agent_portrayal, 30, 30, 600 , 600)
+grid = CanvasGrid(agent_portrayal, 100, 100, 800 , 800)
 server = ModularServer(HabitatModel,
                        [grid],
                        "Habitat Grid", 
-                      30, 30, N=100, randPatches=False)
+                      100, 100, N=10, method="fromFile", filename="patchyworld.csv")
 server.port = 8889
 server.launch()

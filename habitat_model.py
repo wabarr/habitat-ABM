@@ -3,7 +3,7 @@ from mesa.space import MultiGrid, SingleGrid
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 import random
-
+import pandas
 
 habitat_CHOICES = ["Forest", "Grassland"]
 
@@ -18,16 +18,20 @@ class Organism(Agent):
         self.habitat_pref = habitat_pref
         self.death_rate = 0.1
         self.birth_rate = 0.1
-        self.habitat_specificity = 0.9
+        self.habitat_specificity = 1
         self.alive = True
         self.reported = False
         
     def isHappy(self):
         cell = self.model.grid[self.pos[0]][self.pos[1]]
+        #loop over all agents in a cell
+        #there will be exactly 1 HabitatPatch agent and 0 or more Organism agents
         for agent in cell:
             try:
+                #the patch agent has a habitat attribute, so check if it is the same as the habitat_pref attribute of self
                 return agent.habitat == self.habitat_pref
-            except: #these are the patch agents, that will have no habitat_pref
+            except: 
+                #any organism agents don't have a habitat attribute, so they are an exception and we pass on them
                 pass
     
     def move(self):
@@ -63,12 +67,15 @@ class Organism(Agent):
         
 
 class HabitatModel(Model):
-    def __init__(self, height, width, N, randPatches):
+    def __init__(self, height, width, N, method, filename=None):
+        if method == "fromFile" and not filename:
+            raise Exception("you must include a filename to create a world from a file")
+
         self.running = True
         self.grid = MultiGrid(height, width, False)
         self.schedule = RandomActivation(self)
         # Create patches
-        self.createPatches(height, width, randPatches)
+        self.createPatches(height, width, method, filename)
         self.createAgents(N)
         self.datacollector = MyDataCollector(
             agent_reporters={
@@ -81,14 +88,16 @@ class HabitatModel(Model):
     def cleanUp(self):
         self.datacollector.get_agent_vars_dataframe().to_csv("./output.csv")
         
-    def createPatches(self, height, width, randPatches):
-        if randPatches==True:
+    def createPatches(self, height, width, method, filename):
+        self.filename = filename
+        if not method in ["random", "rectangle", "fromFile"]:
+            raise Exception("unrecognized method for creating patches")
+        if method=="random":
             for cell, index in zip(self.grid.coord_iter(), range(height*width)):
                 patch = HabitatPatch(self,"patch"+str(index),random.choice(habitat_CHOICES))
-                #self.schedule.add(patch)
                 cell_content, x, y = cell
                 self.grid.place_agent(patch, (x, y))
-        else: #nonrandom habitat patches
+        elif method=="rectangle": #nonrandom habitat patches
             for cell, index in zip(self.grid.coord_iter(), range(height*width)):
                 cell_content, x, y = cell
                 if x < list(range(width))[len(range(width))//2]:
@@ -96,8 +105,15 @@ class HabitatModel(Model):
                 else:
                     patch = HabitatPatch(self,"patch"+str(index),habitat_CHOICES[1])
                 self.grid.place_agent(patch, (x, y))
-                
-            
+        elif method=="fromFile":
+            df = pandas.read_csv(filename)
+            for tup in df.itertuples():
+                row = [int(each) for each in tup[1].split(' ')]
+                index = tup[0]
+                patch = HabitatPatch(self, "patch"+str(index), habitat_CHOICES[row[2]-1]) #subtract 1 to work with python zero-indexing
+                self.grid.place_agent(patch,(row[0]-1,row[1]-1))
+
+
     def createAgents(self, N):
         for index in range(N):
             agent = Organism(self, "Organism" + str(index).zfill(6), random.choice(habitat_CHOICES))
