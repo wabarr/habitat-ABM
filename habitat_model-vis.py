@@ -33,6 +33,6 @@ grid = CanvasGrid(agent_portrayal, 100, 100, 800 , 800)
 server = ModularServer(HabitatModel,
                        [grid],
                        "Habitat Grid", 
-                      100, 100, N=10, method="fromFile", filename="patchyworld.csv")
+                      100, 100, N=200, method="fromFile", filename="patchyworld.csv")
 server.port = 8889
 server.launch()

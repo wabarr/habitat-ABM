@@ -4,6 +4,7 @@ from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 import random
 import pandas
+import os
 
 habitat_CHOICES = ["Forest", "Grassland"]
 
@@ -67,16 +68,25 @@ class Organism(Agent):
         
 
 class HabitatModel(Model):
-    def __init__(self, height, width, N, method, filename=None):
+    def __init__(self, height, width, N, method, outdir, filename=None):
         if method == "fromFile" and not filename:
             raise Exception("you must include a filename to create a world from a file")
 
         self.running = True
-        self.grid = MultiGrid(height, width, False)
+
+        self.height=height
+        self.width=width
+        self.N=N
+        self.method=method
+        self.filename=filename
+        self.outdir = outdir
+
+        self.grid = MultiGrid(self.height, self.width, False)
         self.schedule = RandomActivation(self)
+
         # Create patches
-        self.createPatches(height, width, method, filename)
-        self.createAgents(N)
+        self.createPatches()
+        self.createAgents()
         self.datacollector = MyDataCollector(
             agent_reporters={
                              "x": lambda a: a.pos[0],
@@ -86,27 +96,30 @@ class HabitatModel(Model):
                              }
                          )
     def cleanUp(self):
-        self.datacollector.get_agent_vars_dataframe().to_csv("./output.csv")
+        outfile="fossil-record_output.csv"
+        self.datacollector.get_agent_vars_dataframe().to_csv(os.path.join(self.outdir, outfile))
         
-    def createPatches(self, height, width, method, filename):
-        self.filename = filename
-        if not method in ["random", "rectangle", "fromFile"]:
+    def createPatches(self):
+        if not self.method in ["random", "rectangle", "fromFile"]:
             raise Exception("unrecognized method for creating patches")
-        if method=="random":
-            for cell, index in zip(self.grid.coord_iter(), range(height*width)):
+        if self.method=="random":
+            for cell, index in zip(self.grid.coord_iter(), range(self.height*self.width)):
                 patch = HabitatPatch(self,"patch"+str(index),random.choice(habitat_CHOICES))
                 cell_content, x, y = cell
                 self.grid.place_agent(patch, (x, y))
-        elif method=="rectangle": #nonrandom habitat patches
-            for cell, index in zip(self.grid.coord_iter(), range(height*width)):
+        elif self.method=="rectangle": #nonrandom habitat patches
+            for cell, index in zip(self.grid.coord_iter(), range(self.height*self.width)):
                 cell_content, x, y = cell
                 if x < list(range(width))[len(range(width))//2]:
                     patch = HabitatPatch(self,"patch"+str(index),habitat_CHOICES[0])
                 else:
                     patch = HabitatPatch(self,"patch"+str(index),habitat_CHOICES[1])
                 self.grid.place_agent(patch, (x, y))
-        elif method=="fromFile":
-            df = pandas.read_csv(filename)
+        elif self.method=="fromFile":
+            df = pandas.read_csv(os.path.join(self.outdir, self.filename))
+            fileWorldSize = int(df.shape[0]**(0.5)) #take square root of row count to get size of square
+            if not fileWorldSize == self.grid.width or not fileWorldSize==self.grid.height:
+                raise Exception("The size of the world in the file doesn't match the height and width of the HabitatModel object. Note: world must be square. ")
             for tup in df.itertuples():
                 row = [int(each) for each in tup[1].split(' ')]
                 index = tup[0]
@@ -114,8 +127,8 @@ class HabitatModel(Model):
                 self.grid.place_agent(patch,(row[0]-1,row[1]-1))
 
 
-    def createAgents(self, N):
-        for index in range(N):
+    def createAgents(self):
+        for index in range(self.N):
             agent = Organism(self, "Organism" + str(index).zfill(6), random.choice(habitat_CHOICES))
             self.schedule.add(agent)
             x = random.randrange(self.grid.width)
